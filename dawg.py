@@ -1,6 +1,11 @@
 word_list = open("lexicon/test_lexicon", "r").readlines()
 word_list = [word.strip("\n") for word in word_list]
 
+word_list2 = ["cat", "cats", "fact", "facts", "facet", "facets"]
+
+big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
+big_list = [word.strip("\n") for word in big_list]
+
 
 # first just define a trie data structure
 def build_trie(lexicon):
@@ -69,20 +74,17 @@ def length_common_prefix(prev_word, word):
 
 
 # minimization function
-def minimize(curr_node, num_steps, minimized_nodes, non_minimized_nodes):
-
-    for _ in range(num_steps):
-
-        # TODO: make less ugly
-        if not non_minimized_nodes:
-            break
+def minimize(curr_node, common_prefix_length, minimized_nodes, non_minimized_nodes):
+    # Start at end of the non_minimized_node list. Then minimize nodes until lengths of
+    # non_min_nodes and common_prefix are equal.
+    for _ in range(len(non_minimized_nodes), common_prefix_length, -1):
 
         parent, letter, child = non_minimized_nodes.pop()
 
         duplicate_node = False
         for node in minimized_nodes:
             if (child.is_terminal == node.is_terminal) and (child.children == node.children):
-                parent.children[letter] = child
+                parent.children[letter] = node
                 duplicate_node = True
                 break
 
@@ -94,23 +96,20 @@ def minimize(curr_node, num_steps, minimized_nodes, non_minimized_nodes):
     return curr_node
 
 
+# function to build dawg from given lexicon
 def build_dawg(lexicon):
-    minimized_nodes = []
-    non_minimized_nodes = []
     root = Node()
+    minimized_nodes = [root]
+    non_minimized_nodes = []
     curr_node = root
     prev_word = ""
-    for word in lexicon:
-
+    for i, word in enumerate(lexicon):
         # get common prefix of new word and previous word
         common_prefix_length = length_common_prefix(prev_word, word)
 
-        # backtrack n times where n is difference between length of word and length of common prefix
-        to_backtrack = len(word) - common_prefix_length
-
-        # minimization step
+        # minimization step: only call minimize if there are nodes in non_minimized_nodes
         if non_minimized_nodes:
-            curr_node = minimize(curr_node, to_backtrack, minimized_nodes, non_minimized_nodes)
+            curr_node = minimize(curr_node, common_prefix_length, minimized_nodes, non_minimized_nodes)
 
         # adding new nodes after the common prefix
         for letter in word[common_prefix_length:]:
@@ -122,10 +121,29 @@ def build_dawg(lexicon):
         # by the end of this process, curr_node should always be a terminal node
         curr_node.is_terminal = True
         prev_word = word
+        if i % 1000 == 0:
+            print(i)
 
-    [print(node) for node in minimized_nodes]
-    print(root)
+    minimize(curr_node, 0, minimized_nodes, non_minimized_nodes)
+    # [print(node) for node in minimized_nodes]
+    # print(len(minimized_nodes))
     return root
 
 
-build_dawg(word_list)
+# check if word is in dawg
+def find(word, curr_node):
+    for letter in word:
+        if letter in curr_node.children:
+            curr_node = curr_node.children[letter]
+        else:
+            return False
+    if curr_node.is_terminal:
+        return True
+    else:
+        return False
+
+
+dawg_root = build_dawg(big_list)
+
+for word in word_list:
+    print(find(word, dawg_root))
