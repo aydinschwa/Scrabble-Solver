@@ -9,6 +9,7 @@ big_list = [word.strip("\n") for word in big_list]
 
 # first just define a trie data structure
 def build_trie(lexicon):
+    num_nodes = 1
     trie = {0: {}}
     next_node = 1
     for word in lexicon:
@@ -21,12 +22,14 @@ def build_trie(lexicon):
             # otherwise, create new node and store its edge in current node
             # then move to it
             else:
+                num_nodes += 1
                 trie[next_node] = {}
                 trie[curr_node][let] = next_node
                 curr_node = next_node
                 next_node += 1
         trie[curr_node]["END"] = True
 
+    print(num_nodes)
     return trie
 
 
@@ -61,6 +64,23 @@ class Node:
             out.append(f" {letter} -> {child.id}\n")
         return " ".join(out)
 
+    def __repr__(self):
+        out = []
+        if self.is_terminal:
+            out.append("1")
+        else:
+            out.append("0")
+        for key, val in self.children.items():
+            out.append(key)
+            out.append(str(val.id))
+        return "_".join(out)
+
+    def __hash__(self):
+        return self.__repr__().__hash__()
+
+    def __eq__(self, other):
+        return self.__repr__() == other.__repr__()
+
 
 # returns length of common prefix
 def length_common_prefix(prev_word, word):
@@ -81,15 +101,11 @@ def minimize(curr_node, common_prefix_length, minimized_nodes, non_minimized_nod
 
         parent, letter, child = non_minimized_nodes.pop()
 
-        duplicate_node = False
-        for node in minimized_nodes:
-            if (child.is_terminal == node.is_terminal) and (child.children == node.children):
-                parent.children[letter] = node
-                duplicate_node = True
-                break
+        if child in minimized_nodes:
+            parent.children[letter] = minimized_nodes[child]
 
-        if not duplicate_node:
-            minimized_nodes.append(child)
+        else:
+            minimized_nodes[child] = child
 
         curr_node = parent
 
@@ -99,7 +115,7 @@ def minimize(curr_node, common_prefix_length, minimized_nodes, non_minimized_nod
 # function to build dawg from given lexicon
 def build_dawg(lexicon):
     root = Node()
-    minimized_nodes = [root]
+    minimized_nodes = {root: root}
     non_minimized_nodes = []
     curr_node = root
     prev_word = ""
@@ -121,12 +137,12 @@ def build_dawg(lexicon):
         # by the end of this process, curr_node should always be a terminal node
         curr_node.is_terminal = True
         prev_word = word
-        if i % 1000 == 0:
-            print(i)
+        # if i % 1000 == 0:
+        #     print(i)
 
     minimize(curr_node, 0, minimized_nodes, non_minimized_nodes)
     # [print(node) for node in minimized_nodes]
-    # print(len(minimized_nodes))
+    print(len(minimized_nodes))
     return root
 
 
@@ -145,5 +161,5 @@ def find(word, curr_node):
 
 dawg_root = build_dawg(big_list)
 
-for word in word_list:
+for word in big_list:
     print(find(word, dawg_root))
