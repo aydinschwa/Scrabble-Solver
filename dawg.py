@@ -142,12 +142,12 @@ def build_dawg(lexicon):
 
     minimize(curr_node, 0, minimized_nodes, non_minimized_nodes)
     # [print(node) for node in minimized_nodes]
-    print(len(minimized_nodes))
+    # print(len(minimized_nodes))
     return root
 
 
 # check if word is in dawg
-def find(word, curr_node):
+def find_in_dawg(word, curr_node):
     for letter in word:
         if letter in curr_node.children:
             curr_node = curr_node.children[letter]
@@ -159,7 +159,3 @@ def find(word, curr_node):
         return False
 
 
-dawg_root = build_dawg(big_list)
-
-for word in big_list:
-    print(find(word, dawg_root))
