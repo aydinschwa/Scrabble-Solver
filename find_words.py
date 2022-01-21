@@ -1,13 +1,40 @@
 from dawg import build_dawg, find_in_dawg
 from string import ascii_uppercase
-# first just define a function that creates valid words from a rack of tiles and a starting letter
+
 
 big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
 big_list = [word.strip("\n") for word in big_list]
 root = build_dawg(big_list)
 
 word_score_dict = {}
-word_rack = ["S", "N", "E", "D", "K", "C", "R"]
+word_rack = ["E", "N", "E", "D", "K", "C", "R"]
+
+
+class Square:
+    def __init__(self, letter=None):
+        self.letter = letter
+        self.right_neighbor = None
+        self.left_neighbor = None
+
+
+placed_square = Square("A")
+a = Square()
+b = Square()
+c = Square()
+d = Square()
+e = Square()
+f = Square()
+g = Square()
+h = Square()
+
+placed_square.right_neighbor = a
+a.right_neighbor = b
+b.right_neighbor = c
+c.right_neighbor = d
+d.right_neighbor = e
+e.right_neighbor = f
+f.right_neighbor = g
+g.right_neighbor = h
 
 
 def score_word(word):
@@ -25,21 +52,57 @@ def score_word(word):
     return word, score
 
 
-def get_valid_right_words(start, rack, word):
-    if start.is_terminal:
-        word, score = score_word(word)
-        word_score_dict[word] = score
-    for letter in rack:
-        if letter in start.children:
-            new_node = start.children[letter]
-            new_rack = rack.copy()
-            new_rack.remove(letter)
-            new_word = word + letter
-            get_valid_right_words(new_node, new_rack, new_word)
+def extend_right(start_node, square, rack, word):
+    # execute if square is empty
+    if not square.letter:
+        if start_node.is_terminal:
+            word, score = score_word(word)
+            word_score_dict[word] = score
+        for letter in rack:
+            if letter in start_node.children:
+                new_node = start_node.children[letter]
+                new_rack = rack.copy()
+                new_rack.remove(letter)
+                new_word = word + letter
+                extend_right(new_node, square.right_neighbor, new_rack, new_word)
+    else:
+        if square.letter in start_node.children:
+            new_node = start_node.children[square.letter]
+            new_word = word + square.letter
+            extend_right(new_node, square.right_neighbor, rack, new_word)
 
 
-for letter in ascii_uppercase:
-    start_node = root.children[letter]
-    get_valid_right_words(start_node, word_rack, letter)
+def left_part(start_node, anchor_square, rack, word, limit):
+    extend_right(start_node, anchor_square, rack, word)
+    if limit > 0:
+        for letter in rack:
+            if letter in start_node.children:
+                new_node = start_node.children[letter]
+                new_rack = rack.copy()
+                new_rack.remove(letter)
+                new_word = word + letter
+                left_part(new_node, anchor_square, new_rack, new_word, limit - 1)
 
-print(list(sorted(word_score_dict.items(), key=lambda x: x[1], reverse=True)))
+
+# As a start, this function should take an already-filled square with no neighbors and compute
+# all possible words using the square and the tiles from the rack
+def get_all_words(start_node, square, rack, word):
+    # get all words that start with the filled letter
+    extend_right(start_node, square, rack, word)
+
+    # try every letter in rack as possible anchor square
+    for i, letter in enumerate(rack):
+        anchor_square = Square(letter)
+        anchor_square.right_neighbor = square
+        temp_rack = rack[:i] + rack[i+1:]
+        left_part(start_node, anchor_square, temp_rack, "", 5)
+
+
+get_all_words(root, placed_square, word_rack, "")
+
+out = list(sorted(word_score_dict.items(), key=lambda x: x[1], reverse=True))
+[print(elem) for elem in out]
+
+for word in out:
+    if not find_in_dawg(word[0], root):
+        raise Exception(f"Word generation incorrect: {word[0]} not in lexicon")
