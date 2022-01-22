@@ -1,13 +1,17 @@
 from dawg import build_dawg, find_in_dawg
 from string import ascii_uppercase
 
+# english_list = open("lexicon/english_words.txt", "r").readlines()
+# english_list = [word.strip("\n") for word in english_list]
+# root = build_dawg(english_list)
+
 
 big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
 big_list = [word.strip("\n") for word in big_list]
 root = build_dawg(big_list)
 
 word_score_dict = {}
-word_rack = ["E", "N", "E", "D", "K", "C", "R"]
+word_rack = ["A", "A", "A", "A", "L", "L", "L", "L", "V", "V", "V", "V", "U", "U", "U", "U", "H", "H", "H", "H", "P", "P", "P", "P", "E", "E"]
 
 
 class Square:
@@ -17,7 +21,7 @@ class Square:
         self.left_neighbor = None
 
 
-placed_square = Square("A")
+placed_square = Square("E")
 a = Square()
 b = Square()
 c = Square()
