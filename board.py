@@ -1,4 +1,5 @@
 from dawg import build_dawg, find_in_dawg
+import random
 import copy
 import time
 
@@ -7,7 +8,9 @@ class Square:
     # default behavior is blank square, no score modifier, all cross-checks valid
     def __init__(self, letter=None, modifier=None, sentinel=1):
         self.letter = letter
-        self.cross_checks = [sentinel] * 26
+        self.cross_checks_0 = [sentinel] * 26
+        self.cross_checks_1 = [sentinel] * 26
+        self.cross_checks = self.cross_checks_0
         self.modifier = modifier
         self.visible = True
         if sentinel == 0:
@@ -20,6 +23,13 @@ class Square:
             return "_"
         else:
             return self.letter
+
+    # maintain two separate cross-check lists depending on if the board is transpose or not
+    def check_switch(self, is_transpose):
+        if is_transpose:
+            self.cross_checks = self.cross_checks_1
+        else:
+            self.cross_checks = self.cross_checks_0
 
 
 class ScrabbleBoard:
@@ -86,6 +96,11 @@ class ScrabbleBoard:
         self.board = [row_1, row_2, row_3, row_4, row_5, row_6, row_7, row_8,
                       row_9, row_10, row_11, row_12, row_13, row_14, row_15, row_16]
 
+        self.tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
+                        ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
+                        ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
+                        ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1  # TODO: blanks here
+
         self.words_on_board = []
 
         self.is_transpose = False
@@ -96,6 +111,7 @@ class ScrabbleBoard:
         self.best_word = ""
         self.highest_score = 0
         self.dist_from_anchor = 0
+        self.letters_from_rack = []
 
         # rows and columns of highest-scoring word found so far.
         # these are the rows and columns of the tile already on the board
@@ -111,14 +127,11 @@ class ScrabbleBoard:
         # https://datagy.io/python-transpose-list-of-lists/
         transposed_tuples = copy.deepcopy(list(zip(*self.board)))
         self.board = [list(sublist) for sublist in transposed_tuples]
+        self.is_transpose = not self.is_transpose
 
-    # TODO: implement score multipliers
-    def _score_word(self, word, dist_from_anchor):
-        # don't add words that are already on the board
-        if word in self.words_on_board:
-            return word, 0
+    # TODO: implement cross-sums
+    def _score_word(self, word, modifiers, dist_from_anchor):
 
-        score = 0
         point_dict = {"A": 1, "B": 3, "C": 3, "D": 2,
                       "E": 1, "F": 4, "G": 2, "H": 4,
                       "I": 1, "J": 8, "K": 5, "L": 1,
@@ -127,8 +140,27 @@ class ScrabbleBoard:
                       "U": 1, "V": 4, "W": 4, "X": 8,
                       "Y": 8, "Z": 10}
 
-        for letter in word:
-            score += point_dict[letter]
+        score = 0
+        score_multiplier = 1
+        for letter, modifier in zip(word, modifiers):
+            if modifier == "2LS":
+                score += (point_dict[letter] * 2)
+            elif modifier == "3LS":
+                score += (point_dict[letter] * 3)
+            elif modifier == "2WS":
+                score_multiplier *= 2
+                score += point_dict[letter]
+            elif modifier == "3WS":
+                score_multiplier *= 3
+                score += point_dict[letter]
+            else:
+                score += point_dict[letter]
+
+        score *= score_multiplier
+
+        # don't add words that are already on the board
+        if word in self.words_on_board:
+            return word, 0
 
         if score > self.highest_score:
             self.best_word = word
@@ -138,28 +170,36 @@ class ScrabbleBoard:
 
         return word, score
 
-    def _extend_right(self, start_node, square_row, square_col, rack, word, dist_from_anchor):
+    def _extend_right(self, start_node, square_row, square_col, rack, word, modifiers, dist_from_anchor):
         square = self.board[square_row][square_col]
 
         # execute if square is empty
         if not square.letter:
             if start_node.is_terminal:
-                word, score = self._score_word(word, dist_from_anchor)
+                word, score = self._score_word(word, modifiers, dist_from_anchor)
                 self.word_score_dict[word] = score
             for letter in rack:
-                if letter in start_node.children and self._cross_check(letter, square.cross_checks):
+                # if square already has letters above and below it, don't try to extend
+                if self.board[square_row + 1][square_col].letter and self.board[square_row - 1][square_col].letter:
+                    continue
+                if letter in start_node.children and self._cross_check(letter, square):
                     new_node = start_node.children[letter]
                     new_rack = rack.copy()
                     new_rack.remove(letter)
                     new_word = word + letter
-                    self._extend_right(new_node, square_row, square_col + 1, new_rack, new_word, dist_from_anchor)
+                    new_modifiers = modifiers + [square.modifier]
+                    self._extend_right(new_node, square_row, square_col + 1, new_rack, new_word, new_modifiers,
+                                       dist_from_anchor)
         else:
             if square.letter in start_node.children:
                 new_node = start_node.children[square.letter]
                 new_word = word + square.letter
-                self._extend_right(new_node, square_row, square_col + 1, rack, new_word, dist_from_anchor)
+                new_modifiers = modifiers + [square.modifier]
+                self._extend_right(new_node, square_row, square_col + 1, rack, new_word, new_modifiers,
+                                   dist_from_anchor)
 
-    def _left_part(self, start_node, anchor_square_row, anchor_square_col, rack, word, limit, dist_from_anchor):
+    def _left_part(self, start_node, anchor_square_row, anchor_square_col, rack, word, modifiers, limit,
+                   dist_from_anchor):
 
         # prevent generation of words with left parts that wouldn't fit on the board
         if anchor_square_col - dist_from_anchor < 0:
@@ -168,9 +208,10 @@ class ScrabbleBoard:
         # don't love this, but this seems to be unstated part of paper's implementation. Only allow
         # left parts where cross-checks are nontrivial
         potential_square = self.board[anchor_square_row][anchor_square_col - dist_from_anchor]
+        potential_square.check_switch(self.is_transpose)
         if (0 in potential_square.cross_checks) or potential_square.letter:
             return
-        self._extend_right(start_node, anchor_square_row, anchor_square_col, rack, word, dist_from_anchor)
+        self._extend_right(start_node, anchor_square_row, anchor_square_col, rack, word, modifiers, dist_from_anchor)
         if limit > 0:
             for letter in rack:
                 if letter in start_node.children:
@@ -178,13 +219,24 @@ class ScrabbleBoard:
                     new_rack = rack.copy()
                     new_rack.remove(letter)
                     new_word = word + letter
-                    self._left_part(new_node, anchor_square_row, anchor_square_col, new_rack, new_word, limit - 1,
-                                    dist_from_anchor + 1)
+                    new_modifiers = modifiers + [potential_square.modifier]
+                    self._left_part(new_node, anchor_square_row, anchor_square_col, new_rack, new_word, new_modifiers,
+                                    limit - 1, dist_from_anchor + 1)
 
     def _update_cross_checks(self):
         while self.upper_cross_check:
             curr_square, lower_letter, lower_row, lower_col = self.upper_cross_check.pop()
+            curr_square.check_switch(self.is_transpose)
             chr_val = 65
+            # prevent horizontal row stacking deeper than 2 layers
+            # seems to have no effect when I take this out, but might be from lack of testing
+            if curr_square.letter:
+                self.board[lower_row - 2][lower_col].cross_checks_0 = [0] * 26
+                self.board[lower_row - 2][lower_col].cross_checks_1 = [0] * 26
+
+                self.board[lower_row + 1][lower_col].cross_checks_0 = [0] * 26
+                self.board[lower_row + 1][lower_col].cross_checks_1 = [0] * 26
+                continue
             for i, ind in enumerate(curr_square.cross_checks):
                 if ind == 1:
                     test_node = self.dawg_root.children[chr(chr_val)]
@@ -194,7 +246,18 @@ class ScrabbleBoard:
 
         while self.lower_cross_check:
             curr_square, upper_letter, upper_row, upper_col = self.lower_cross_check.pop()
+            curr_square.check_switch(self.is_transpose)
             chr_val = 65
+            # prevent horizontal row stacking deeper than 2 layers
+            # seems to have no effect when I take this out, but might be from lack of testing
+            if curr_square.letter:
+                self.board[upper_row - 1][upper_col].cross_checks_0 = [0] * 26
+                self.board[upper_row - 1][upper_col].cross_checks_1 = [0] * 26
+
+                self.board[upper_row + 2][upper_col].cross_checks_0 = [0] * 26
+                self.board[upper_row + 2][upper_col].cross_checks_1 = [0] * 26
+                continue
+
             for i, ind in enumerate(curr_square.cross_checks):
                 if ind == 1:
                     test_node = self.dawg_root.children[upper_letter]
@@ -202,7 +265,9 @@ class ScrabbleBoard:
                         curr_square.cross_checks[i] = 0
                 chr_val += 1
 
-    def _cross_check(self, letter, cross_checks):
+    def _cross_check(self, letter, square):
+        square.check_switch(self.is_transpose)
+        cross_checks = square.cross_checks
         chr_val = 65
         for i, ind in enumerate(cross_checks):
             if ind == 1:
@@ -227,13 +292,17 @@ class ScrabbleBoard:
     def insert_word(self, row, col, word):
         row -= 1
         col -= 1
+        # maintain list of which tiles were pulled from word rack
+        self.letters_from_rack = []
         if len(word) + col > 15:
             print(f'Cannot insert word "{word}" at column {col + 1}, '
                   f'row {row + 1} not enough space')
             return
         curr_col = col
+        modifiers = []
         for i, letter in enumerate(word):
             curr_square_letter = self.board[row][curr_col].letter
+            modifiers.append(self.board[row][curr_col].modifier)
             # if current square already has a letter in it, check to see if it's the same letter as
             # the one we're trying to insert. If not, insertion fails, undo any previous insertions
             if curr_square_letter:
@@ -252,34 +321,42 @@ class ScrabbleBoard:
                     for _ in range(i):
                         curr_col -= 1
                         self.board[row][curr_col].letter = None
+                        self.board[row][curr_col].modifier = modifiers.pop()
                     return
             else:
+                self.board[row][curr_col].letter = letter
+
+                # reset any modifiers to 0 once they have a tile placed on top of them
+                self.board[row][curr_col].modifier = None
+                self.letters_from_rack.append(letter)
+
                 # once letter is inserted, add squares above and below it to cross_check_queue
                 if row > -1:
                     self.upper_cross_check.append((self.board[row - 1][curr_col], letter, row, curr_col))
                 if row < 15:
                     self.lower_cross_check.append((self.board[row + 1][curr_col], letter, row, curr_col))
 
-                self.board[row][curr_col].letter = letter
                 curr_col += 1
 
         # place 0 cross-check sentinel at the beginning and end of inserted words to stop accidental overlap
         if curr_col < 15:
-            self.board[self.best_row][curr_col].cross_checks = [0] * 26
+            self.board[self.best_row][curr_col].cross_checks_0 = [0] * 26
+            self.board[self.best_row][curr_col].cross_checks_1 = [0] * 26
         if col - 1 > - 1:
-            self.board[self.best_row][col - 1].cross_checks = [0] * 26
+            self.board[self.best_row][col - 1].cross_checks_0 = [0] * 26
+            self.board[self.best_row][col - 1].cross_checks_1 = [0] * 26
 
         self._update_cross_checks()
 
         self.words_on_board.append(word)
 
     # gets all words that can be made using a selected filled square and the current word rack
-    def get_all_words(self, square_row, square_col, rack, word=""):
+    def get_all_words(self, square_row, square_col, rack):
         square_row -= 1
         square_col -= 1
 
         # get all words that start with the filled letter
-        self._extend_right(self.dawg_root, square_row, square_col, rack, word, 0)
+        self._extend_right(self.dawg_root, square_row, square_col, rack, "", [], 0)
 
         # create anchor square only if the space is empty
         if self.board[square_row][square_col - 1].letter:
@@ -289,11 +366,13 @@ class ScrabbleBoard:
         for i, letter in enumerate(rack):
             # don't love this, but this seems to be unstated part of paper's implementation. Only allow
             # left parts where cross-checks are nontrivial
-            if 0 in self.board[square_row][square_col - 1].cross_checks:
+            potential_square = self.board[square_row][square_col - 1]
+            potential_square.check_switch(self.is_transpose)
+            if 0 in potential_square.cross_checks:
                 continue
             temp_rack = rack[:i] + rack[i + 1:]
             self.board[square_row][square_col - 1].letter = letter
-            self._left_part(self.dawg_root, square_row, square_col - 1, temp_rack, "", 6, 1)
+            self._left_part(self.dawg_root, square_row, square_col - 1, temp_rack, "", [], 6, 1)
 
         # reset anchor square spot to blank after trying all combinations
         self.board[square_row][square_col - 1].letter = None
@@ -321,9 +400,7 @@ class ScrabbleBoard:
                     if self.best_word != prev_best_word:
                         self.best_row = row
                         self.best_col = col
-
         self._transpose()
-
         for row in range(0, 15):
             for col in range(0, 15):
                 curr_square = self.board[row][col]
@@ -334,29 +411,43 @@ class ScrabbleBoard:
                         transposed = True
                         self.best_row = row
                         self.best_col = col
-
         if transposed:
             self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
             self._transpose()
-
         else:
             self._transpose()
             self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
 
+        for letter in self.letters_from_rack:
+            if letter in word_rack:
+                word_rack.remove(letter)
 
-big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
-big_list = [word.strip("\n") for word in big_list]
-root = build_dawg(big_list)
+        print(self.best_word, self.highest_score)
+        return word_rack
 
-word_rack = ["E", "O", "U", "C", "T", "R", "A"]
-scrabble_board = ScrabbleBoard(root)
-scrabble_board.insert_word(1, 7, "SIT")
-scrabble_board.print_board()
-for _ in range(35):
-    scrabble_board.get_best_move(word_rack)
-    print(scrabble_board.words_on_board)
+
+def refill_word_rack(rack, tile_bag):
+    to_add = 7 - len(rack)
+    new_letters = [random.choice(tile_bag) for _ in range(to_add)]
+    rack = rack + new_letters
+    return rack
+
+
+tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
+           ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
+           ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
+           ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1  # TODO: blanks here
+
+if __name__ == "__main__":
+    big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
+    big_list = [word.strip("\n") for word in big_list]
+    root = build_dawg(big_list)
+
+    word_rack = ["E", "O", "U", "C", "T", "R", "A"]
+    scrabble_board = ScrabbleBoard(root)
+    scrabble_board.insert_word(1, 7, "SIT")
     scrabble_board.print_board()
-
-# scrabble_board.board[5][5].cross_checks = [0] * 26
-# scrabble_board.get_best_move(word_rack)
-# scrabble_board.print_board()
+    for _ in range(50):
+        word_rack = scrabble_board.get_best_move(word_rack)
+        word_rack = refill_word_rack(word_rack, tile_bag)
+        #scrabble_board.print_board()
