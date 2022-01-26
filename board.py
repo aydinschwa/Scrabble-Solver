@@ -82,18 +82,21 @@ class ScrabbleBoard:
 
         row_16 = [Square(sentinel=0) for _ in range(16)]
 
+        # variables to describe board state
         self.board = [row_1, row_2, row_3, row_4, row_5, row_6, row_7, row_8,
                       row_9, row_10, row_11, row_12, row_13, row_14, row_15, row_16]
 
-        self.dawg_root = dawg_root
-
         self.words_on_board = []
 
+        self.is_transpose = False
+
         # variables to encode best word on a given turn
+        self.dawg_root = dawg_root
         self.word_score_dict = {}
         self.best_word = ""
         self.highest_score = 0
         self.dist_from_anchor = 0
+
         # rows and columns of highest-scoring word found so far.
         # these are the rows and columns of the tile already on the board
         self.best_row = 0
@@ -157,10 +160,15 @@ class ScrabbleBoard:
                 self._extend_right(new_node, square_row, square_col + 1, rack, new_word, dist_from_anchor)
 
     def _left_part(self, start_node, anchor_square_row, anchor_square_col, rack, word, limit, dist_from_anchor):
+
+        # prevent generation of words with left parts that wouldn't fit on the board
+        if anchor_square_col - dist_from_anchor < 0:
+            return
+
         # don't love this, but this seems to be unstated part of paper's implementation. Only allow
         # left parts where cross-checks are nontrivial
-        potential_square = self.board[anchor_square_row][anchor_square_col - dist_from_anchor + 1]
-        if not all(potential_square.cross_checks):
+        potential_square = self.board[anchor_square_row][anchor_square_col - dist_from_anchor]
+        if (0 in potential_square.cross_checks) or potential_square.letter:
             return
         self._extend_right(start_node, anchor_square_row, anchor_square_col, rack, word, dist_from_anchor)
         if limit > 0:
@@ -219,7 +227,6 @@ class ScrabbleBoard:
     def insert_word(self, row, col, word):
         row -= 1
         col -= 1
-        print(row, col, word)
         if len(word) + col > 15:
             print(f'Cannot insert word "{word}" at column {col + 1}, '
                   f'row {row + 1} not enough space')
@@ -262,12 +269,9 @@ class ScrabbleBoard:
         if col - 1 > - 1:
             self.board[self.best_row][col - 1].cross_checks = [0] * 26
 
-        self.words_on_board.append(word)
+        self._update_cross_checks()
 
-        # TODO: makes shit weird
-        print(self.upper_cross_check)
-        print(self.lower_cross_check)
-        # self._update_cross_checks()
+        self.words_on_board.append(word)
 
     # gets all words that can be made using a selected filled square and the current word rack
     def get_all_words(self, square_row, square_col, rack, word=""):
@@ -277,20 +281,19 @@ class ScrabbleBoard:
         # get all words that start with the filled letter
         self._extend_right(self.dawg_root, square_row, square_col, rack, word, 0)
 
-        # prevent generation of words with left parts that wouldn't fit on the board
-        limit = 6
-        if square_col < 7:
-            limit = square_col - 1
-
         # create anchor square only if the space is empty
         if self.board[square_row][square_col - 1].letter:
             return
 
         # try every letter in rack as possible anchor square
         for i, letter in enumerate(rack):
+            # don't love this, but this seems to be unstated part of paper's implementation. Only allow
+            # left parts where cross-checks are nontrivial
+            if 0 in self.board[square_row][square_col - 1].cross_checks:
+                continue
             temp_rack = rack[:i] + rack[i + 1:]
             self.board[square_row][square_col - 1].letter = letter
-            self._left_part(self.dawg_root, square_row, square_col - 1, temp_rack, "", limit, 1)
+            self._left_part(self.dawg_root, square_row, square_col - 1, temp_rack, "", 6, 1)
 
         # reset anchor square spot to blank after trying all combinations
         self.board[square_row][square_col - 1].letter = None
@@ -349,9 +352,11 @@ word_rack = ["E", "O", "U", "C", "T", "R", "A"]
 scrabble_board = ScrabbleBoard(root)
 scrabble_board.insert_word(1, 7, "SIT")
 scrabble_board.print_board()
-for _ in range(50):
+for _ in range(35):
     scrabble_board.get_best_move(word_rack)
     print(scrabble_board.words_on_board)
     scrabble_board.print_board()
 
-print(scrabble_board.board[3][7].cross_checks)
+# scrabble_board.board[5][5].cross_checks = [0] * 26
+# scrabble_board.get_best_move(word_rack)
+# scrabble_board.print_board()
