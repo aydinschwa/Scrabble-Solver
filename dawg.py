@@ -1,12 +1,3 @@
-word_list = open("lexicon/test_lexicon", "r").readlines()
-word_list = [word.strip("\n") for word in word_list]
-
-word_list2 = ["cat", "cats", "fact", "facts", "facet", "facets"]
-
-big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
-big_list = [word.strip("\n") for word in big_list]
-
-
 # Define a node to be stored in DAWG
 class Node:
     next_id = 0

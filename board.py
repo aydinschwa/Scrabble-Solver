@@ -6,7 +6,7 @@ import time
 
 class Square:
     # default behavior is blank square, no score modifier, all cross-checks valid
-    def __init__(self, letter=None, modifier=None, sentinel=1):
+    def __init__(self, letter=None, modifier="", sentinel=1):
         self.letter = letter
         self.cross_checks_0 = [sentinel] * 26
         self.cross_checks_1 = [sentinel] * 26
@@ -99,7 +99,15 @@ class ScrabbleBoard:
         self.tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
                         ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
                         ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
-                        ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1  # TODO: blanks here
+                        ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
+
+        self.point_dict = {"A": 1, "B": 3, "C": 3, "D": 2,
+                           "E": 1, "F": 4, "G": 2, "H": 4,
+                           "I": 1, "J": 8, "K": 5, "L": 1,
+                           "M": 3, "N": 1, "O": 1, "P": 3,
+                           "Q": 10, "R": 1, "S": 1, "T": 1,
+                           "U": 1, "V": 4, "W": 4, "X": 8,
+                           "Y": 8, "Z": 10}
 
         self.words_on_board = []
 
@@ -129,32 +137,31 @@ class ScrabbleBoard:
         self.board = [list(sublist) for sublist in transposed_tuples]
         self.is_transpose = not self.is_transpose
 
-    # TODO: implement cross-sums
     def _score_word(self, word, modifiers, dist_from_anchor):
-
-        point_dict = {"A": 1, "B": 3, "C": 3, "D": 2,
-                      "E": 1, "F": 4, "G": 2, "H": 4,
-                      "I": 1, "J": 8, "K": 5, "L": 1,
-                      "M": 3, "N": 1, "O": 1, "P": 3,
-                      "Q": 10, "R": 1, "S": 1, "T": 1,
-                      "U": 1, "V": 4, "W": 4, "X": 8,
-                      "Y": 8, "Z": 10}
-
         score = 0
         score_multiplier = 1
+
+        if self.is_transpose:
+            cross_sum_ind = "-"
+        else:
+            cross_sum_ind = "+"
+
         for letter, modifier in zip(word, modifiers):
+            # add cross-sum by adding first and second letter scores from orthogonal two-letter word
+            if cross_sum_ind in modifier:
+                score += int(modifier[-1]) + self.point_dict[letter]
             if modifier == "2LS":
-                score += (point_dict[letter] * 2)
+                score += (self.point_dict[letter] * 2)
             elif modifier == "3LS":
-                score += (point_dict[letter] * 3)
+                score += (self.point_dict[letter] * 3)
             elif modifier == "2WS":
                 score_multiplier *= 2
-                score += point_dict[letter]
+                score += self.point_dict[letter]
             elif modifier == "3WS":
                 score_multiplier *= 3
-                score += point_dict[letter]
+                score += self.point_dict[letter]
             else:
-                score += point_dict[letter]
+                score += self.point_dict[letter]
 
         score *= score_multiplier
 
@@ -227,6 +234,13 @@ class ScrabbleBoard:
         while self.upper_cross_check:
             curr_square, lower_letter, lower_row, lower_col = self.upper_cross_check.pop()
             curr_square.check_switch(self.is_transpose)
+
+            # add to modifier for computing cross-sum
+            if self.is_transpose:
+                curr_square.modifier += f"-{self.point_dict[lower_letter]}"
+            else:
+                curr_square.modifier += f"+{self.point_dict[lower_letter]}"
+
             chr_val = 65
             # prevent horizontal row stacking deeper than 2 layers
             # seems to have no effect when I take this out, but might be from lack of testing
@@ -247,6 +261,13 @@ class ScrabbleBoard:
         while self.lower_cross_check:
             curr_square, upper_letter, upper_row, upper_col = self.lower_cross_check.pop()
             curr_square.check_switch(self.is_transpose)
+
+            # add to modifier for computing cross-sum
+            if self.is_transpose:
+                curr_square.modifier += f"-{self.point_dict[upper_letter]}"
+            else:
+                curr_square.modifier += f"+{self.point_dict[upper_letter]}"
+
             chr_val = 65
             # prevent horizontal row stacking deeper than 2 layers
             # seems to have no effect when I take this out, but might be from lack of testing
@@ -327,7 +348,7 @@ class ScrabbleBoard:
                 self.board[row][curr_col].letter = letter
 
                 # reset any modifiers to 0 once they have a tile placed on top of them
-                self.board[row][curr_col].modifier = None
+                self.board[row][curr_col].modifier = ""
                 self.letters_from_rack.append(letter)
 
                 # once letter is inserted, add squares above and below it to cross_check_queue
@@ -418,9 +439,9 @@ class ScrabbleBoard:
             self._transpose()
             self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
 
-        for letter in self.letters_from_rack:
-            if letter in word_rack:
-                word_rack.remove(letter)
+        # for letter in self.letters_from_rack:
+        #     if letter in word_rack:
+        #         word_rack.remove(letter)
 
         print(self.best_word, self.highest_score)
         return word_rack
@@ -447,7 +468,12 @@ if __name__ == "__main__":
     scrabble_board = ScrabbleBoard(root)
     scrabble_board.insert_word(1, 7, "SIT")
     scrabble_board.print_board()
-    for _ in range(50):
-        word_rack = scrabble_board.get_best_move(word_rack)
-        word_rack = refill_word_rack(word_rack, tile_bag)
-        #scrabble_board.print_board()
+    for _ in range(15):
+        scrabble_board.get_best_move(word_rack)
+        scrabble_board.print_board()
+    # while True:
+    #     word_rack = scrabble_board.get_best_move(word_rack)
+    #     word_rack = refill_word_rack(word_rack, tile_bag)
+    #     scrabble_board.print_board()
+    #     if scrabble_board.best_word == "":
+    #         break
