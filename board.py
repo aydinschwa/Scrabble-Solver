@@ -171,6 +171,10 @@ class ScrabbleBoard:
 
         score *= score_multiplier
 
+        # check for bingo
+        if len(used_tiles) == 7:
+            score += 50
+
         # don't add words that are already on the board
         if board_word in self.words_on_board:
             return board_word, 0
@@ -367,13 +371,17 @@ class ScrabbleBoard:
                     print(f'Failed to insert letter "{letter}" of "{word}" at column {curr_col + 1}, '
                           f'row {row + 1}. Square is occupied by letter "{curr_square_letter}"')
                     print(self.word_rack)
-                    self.print_board()
                     self.upper_cross_check = []
                     self.lower_cross_check = []
                     for _ in range(i):
                         curr_col -= 1
                         self.board[row][curr_col].letter = None
                         self.board[row][curr_col].modifier = modifiers.pop()
+                    self.print_board()
+                    file_handler = open("tests/saved_board.pickle", "wb")
+                    pickle.dump(self, file_handler)
+                    file_handler.close()
+                    exit()
                     return
             else:
                 self.board[row][curr_col].letter = letter
@@ -418,7 +426,7 @@ class ScrabbleBoard:
             # Only allow anchor square with trivial cross-checks
             potential_square = self.board[square_row][square_col - 1]
             potential_square.check_switch(self.is_transpose)
-            if 0 in potential_square.cross_checks:
+            if 0 in potential_square.cross_checks or potential_square.letter:
                 continue
             temp_rack = rack[:i] + rack[i + 1:]
             self.board[square_row][square_col - 1].letter = letter
@@ -447,9 +455,9 @@ class ScrabbleBoard:
             for col in range(0, 15):
                 curr_square = self.board[row][col]
                 if curr_square.letter and (not self.board[row][col - 1].letter):
-                    prev_best_word = self.best_word
+                    prev_best_score = self.highest_score
                     self.get_all_words(row + 1, col + 1, word_rack)
-                    if self.best_word != prev_best_word:
+                    if self.highest_score > prev_best_score:
                         self.best_row = row
                         self.best_col = col
         self._transpose()
@@ -457,9 +465,9 @@ class ScrabbleBoard:
             for col in range(0, 15):
                 curr_square = self.board[row][col]
                 if curr_square.letter and (not self.board[row][col - 1].letter):
-                    prev_best_word = self.best_word
+                    prev_best_score = self.highest_score
                     self.get_all_words(row + 1, col + 1, word_rack)
-                    if self.best_word != prev_best_word:
+                    if self.highest_score > prev_best_score:
                         transposed = True
                         self.best_row = row
                         self.best_col = col
@@ -529,6 +537,8 @@ def play_scrabble_game(root):
         [tile_bag.remove(letter) for letter in new_letters]
         if scrabble_board.best_word == "":
             break
+
+    scrabble_board.print_board()
 
     all_words = scrabble_board.all_board_words()
     for word in all_words:
