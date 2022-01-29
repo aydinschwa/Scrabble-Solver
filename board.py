@@ -2,7 +2,6 @@ from dawg import build_dawg, find_in_dawg
 import regex as re
 import random
 import copy
-import pickle
 
 
 class Square:
@@ -87,7 +86,7 @@ class ScrabbleBoard:
 
         row_8 = \
             [Square(modifier="3WS"), Square(), Square(), Square(modifier="2LS"), Square(),
-             Square(), Square(), Square(modifier="START"), Square(), Square(),
+             Square(), Square(), Square(modifier="2WS"), Square(), Square(),
              Square(), Square(modifier="2LS"), Square(), Square(), Square(modifier="3WS"),
              Square(sentinel=0)]
 
@@ -377,11 +376,6 @@ class ScrabbleBoard:
                         curr_col -= 1
                         self.board[row][curr_col].letter = None
                         self.board[row][curr_col].modifier = modifiers.pop()
-                    self.print_board()
-                    file_handler = open("tests/saved_board.pickle", "wb")
-                    pickle.dump(self, file_handler)
-                    file_handler.close()
-                    exit()
                     return
             else:
                 self.board[row][curr_col].letter = letter
@@ -546,7 +540,7 @@ def play_scrabble_game(root):
             scrabble_board.print_board()
             print(f"Invalid word on board: {word}")
 
-    return score
+    return scrabble_board
 
 
 if __name__ == "__main__":
