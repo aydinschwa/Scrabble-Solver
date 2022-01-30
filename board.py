@@ -133,7 +133,7 @@ class ScrabbleBoard:
         self.board = [list(sublist) for sublist in transposed_tuples]
         self.is_transpose = not self.is_transpose
 
-    def _score_word(self, word, modifiers, dist_from_anchor):
+    def _score_word(self, word, squares, dist_from_anchor):
         score = 0
         score_multiplier = 1
 
@@ -145,24 +145,29 @@ class ScrabbleBoard:
         # word that will be inserted onto board shouldn't have wildcard indicator
         board_word = word.replace("%", "")
 
+        # don't add words that are already on the board
+        if board_word in self.words_on_board:
+            return board_word, 0
+
         # remove letters before wildcard indicators
         word = re.sub("[A-Z]%", "%", word)
 
         # maintain list of which tiles were pulled from word rack
-        used_tiles = []
-        for letter, modifier in zip(word, modifiers):
-            used_tiles.append(letter)
+        rack_tiles = []
+        for letter, square in zip(word, squares):
+            if not square.letter:
+                rack_tiles.append(letter)
             # add cross-sum by adding first and second letter scores from orthogonal two-letter word
-            if cross_sum_ind in modifier:
-                score = int(modifier[-1]) + self.point_dict[letter]
-            if modifier == "2LS":
+            if cross_sum_ind in square.modifier:
+                score = int(square.modifier[-1]) + self.point_dict[letter]
+            if "2LS" in square.modifier:
                 score += (self.point_dict[letter] * 2)
-            elif modifier == "3LS":
+            elif "3LS" in square.modifier:
                 score += (self.point_dict[letter] * 3)
-            elif modifier == "2WS":
+            elif "2WS" in square.modifier:
                 score_multiplier *= 2
                 score += self.point_dict[letter]
-            elif modifier == "3WS":
+            elif "3WS" in square.modifier:
                 score_multiplier *= 3
                 score += self.point_dict[letter]
             else:
@@ -171,30 +176,26 @@ class ScrabbleBoard:
         score *= score_multiplier
 
         # check for bingo
-        if len(used_tiles) == 7:
+        if len(rack_tiles) == 7:
             score += 50
-
-        # don't add words that are already on the board
-        if board_word in self.words_on_board:
-            return board_word, 0
 
         if score > self.highest_score:
             self.best_word = board_word
             self.highest_score = score
             # distance of leftmost placed tile from anchor. if anchor is leftmost tile distance will be 0.
             self.dist_from_anchor = dist_from_anchor
-            self.letters_from_rack = used_tiles
+            self.letters_from_rack = rack_tiles
 
         return board_word, score
 
-    def _extend_right(self, start_node, square_row, square_col, rack, word, modifiers, dist_from_anchor):
+    def _extend_right(self, start_node, square_row, square_col, rack, word, squares, dist_from_anchor):
         square = self.board[square_row][square_col]
         square.check_switch(self.is_transpose)
 
         # execute if square is empty
         if not square.letter:
             if start_node.is_terminal:
-                word, score = self._score_word(word, modifiers, dist_from_anchor)
+                word, score = self._score_word(word, squares, dist_from_anchor)
                 self.word_score_dict[word] = score
             for letter in start_node.children:
                 # if square already has letters above and below it, don't try to extend
@@ -217,18 +218,18 @@ class ScrabbleBoard:
                     else:
                         new_word = word + letter
                         new_rack.remove(letter)
-                    new_modifiers = modifiers + [square.modifier]
-                    self._extend_right(new_node, square_row, square_col + 1, new_rack, new_word, new_modifiers,
+                    new_squares = squares + [square]
+                    self._extend_right(new_node, square_row, square_col + 1, new_rack, new_word, new_squares,
                                        dist_from_anchor)
         else:
             if square.letter in start_node.children:
                 new_node = start_node.children[square.letter]
                 new_word = word + square.letter
-                new_modifiers = modifiers + [square.modifier]
-                self._extend_right(new_node, square_row, square_col + 1, rack, new_word, new_modifiers,
+                new_squares = squares + [square]
+                self._extend_right(new_node, square_row, square_col + 1, rack, new_word, new_squares,
                                    dist_from_anchor)
 
-    def _left_part(self, start_node, anchor_square_row, anchor_square_col, rack, word, modifiers, limit,
+    def _left_part(self, start_node, anchor_square_row, anchor_square_col, rack, word, squares, limit,
                    dist_from_anchor):
 
         # prevent generation of words with left parts that wouldn't fit on the board
@@ -241,7 +242,7 @@ class ScrabbleBoard:
         potential_square.check_switch(self.is_transpose)
         if (0 in potential_square.cross_checks) or potential_square.letter:
             return
-        self._extend_right(start_node, anchor_square_row, anchor_square_col, rack, word, modifiers, dist_from_anchor)
+        self._extend_right(start_node, anchor_square_row, anchor_square_col, rack, word, squares, dist_from_anchor)
         if limit > 0:
             for letter in start_node.children:
                 # conditional for blank squares
@@ -260,8 +261,8 @@ class ScrabbleBoard:
                 else:
                     new_word = word + letter
                     new_rack.remove(letter)
-                new_modifiers = modifiers + [potential_square.modifier]
-                self._left_part(new_node, anchor_square_row, anchor_square_col, new_rack, new_word, new_modifiers,
+                new_squares = squares + [potential_square]
+                self._left_part(new_node, anchor_square_row, anchor_square_col, new_rack, new_word, new_squares,
                                 limit - 1, dist_from_anchor + 1)
 
     def _update_cross_checks(self):
@@ -369,7 +370,6 @@ class ScrabbleBoard:
                 else:
                     print(f'Failed to insert letter "{letter}" of "{word}" at column {curr_col + 1}, '
                           f'row {row + 1}. Square is occupied by letter "{curr_square_letter}"')
-                    print(self.word_rack)
                     self.upper_cross_check = []
                     self.lower_cross_check = []
                     for _ in range(i):
