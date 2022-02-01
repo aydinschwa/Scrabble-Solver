@@ -196,7 +196,6 @@ class ScrabbleBoard:
         if not square.letter:
             if start_node.is_terminal:
                 word, score = self._score_word(word, squares, dist_from_anchor)
-                self.word_score_dict[word] = score
             for letter in start_node.children:
                 # if square already has letters above and below it, don't try to extend
                 if self.board[square_row + 1][square_col].letter and self.board[square_row - 1][square_col].letter:
@@ -438,7 +437,6 @@ class ScrabbleBoard:
         self._update_cross_checks()
 
         # reset word variables to clear out words from previous turns
-        self.word_score_dict = {}
         self.best_word = ""
         self.highest_score = 0
         self.best_row = 0
@@ -472,6 +470,8 @@ class ScrabbleBoard:
             self._transpose()
             self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
 
+        self.word_score_dict[self.best_word] = self.highest_score
+
         for letter in self.letters_from_rack:
             if letter in word_rack:
                 word_rack.remove(letter)
@@ -480,80 +480,6 @@ class ScrabbleBoard:
 
         return word_rack
 
-    # returns a list of all words played on the board
-    def all_board_words(self):
-        board_words = []
-        for _ in range(2):
-            for row in range(0, 15):
-                temp_word = ""
-                for col in range(0, 16):
-                    letter = self.board[row][col].letter
-                    if letter:
-                        temp_word += letter
-                    else:
-                        if len(temp_word) > 1:
-                            board_words.append(temp_word)
-                        temp_word = ""
-
-            self._transpose()
-
-        return board_words
-
-
-def refill_word_rack(rack, tile_bag):
-    to_add = min([7 - len(rack), len(tile_bag)])
-    new_letters = random.sample(tile_bag, to_add)
-    rack = rack + new_letters
-    return rack, new_letters
-
-
-def play_scrabble_game(root):
-    score = 0
-
-    tile_bag = ["A"] * 9 + ["B"] * 2 + ["C"] * 2 + ["D"] * 4 + ["E"] * 12 + ["F"] * 2 + ["G"] * 3 + \
-               ["H"] * 2 + ["I"] * 9 + ["J"] * 1 + ["K"] * 1 + ["L"] * 4 + ["M"] * 2 + ["N"] * 6 + \
-               ["O"] * 8 + ["P"] * 2 + ["Q"] * 1 + ["R"] * 6 + ["S"] * 4 + ["T"] * 6 + ["U"] * 4 + \
-               ["V"] * 2 + ["W"] * 2 + ["X"] * 1 + ["Y"] * 2 + ["Z"] * 1 + ["%"] * 2
-
-    word_rack = random.sample(tile_bag, 7)
-    [tile_bag.remove(letter) for letter in word_rack]
-    scrabble_board = ScrabbleBoard(root)
-
-    # will need to have an actual starting word function eventually
-    scrabble_board.best_row = 7
-    scrabble_board.best_col = 5
-    scrabble_board.insert_word(8, 6, "START")
-
-    while True:
-        word_rack = scrabble_board.get_best_move(word_rack)
-        score += scrabble_board.highest_score
-        word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
-        [tile_bag.remove(letter) for letter in new_letters]
-        if scrabble_board.best_word == "":
-            break
-
-    scrabble_board.print_board()
-
-    all_words = scrabble_board.all_board_words()
-    for word in all_words:
-        if not find_in_dawg(word, root):
-            scrabble_board.print_board()
-            print(f"Invalid word on board: {word}")
-
-    return scrabble_board
-
 
 if __name__ == "__main__":
-    random.seed(123)
-    big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
-    big_list = [word.strip("\n") for word in big_list]
-    root = build_dawg(big_list)
-
-    scores = []
-    for i in range(100):
-        print(f"Game {i + 1}")
-        scores.append(play_scrabble_game(root))
-
-    print(f"Lowest Game Score: {min(scores)}\n"
-          f"Highest Game Score: {max(scores)}\n"
-          f"Mean Game Score: {sum(scores)//len(scores)}")
+    pass

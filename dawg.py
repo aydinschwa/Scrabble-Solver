@@ -1,3 +1,6 @@
+import pickle
+
+
 # Define a node to be stored in DAWG
 class Node:
     next_id = 0
@@ -108,3 +111,12 @@ def find_in_dawg(word, curr_node):
         return True
     else:
         return False
+
+
+if __name__ == "__main__":
+    big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
+    big_list = [word.strip("\n") for word in big_list]
+    root = build_dawg(big_list)
+    file_handler = open("lexicon/scrabble_words_complete.pickle", "wb")
+    pickle.dump(root, file_handler)
+    file_handler.close()

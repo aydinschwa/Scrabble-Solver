@@ -11,7 +11,7 @@ big_list = [word.strip("\n") for word in big_list]
 root = build_dawg(big_list)
 
 word_score_dict = {}
-word_rack = ["A", "A", "A", "A", "L", "L", "L", "L", "V", "V", "V", "V", "U", "U", "U", "U", "H", "H", "H", "H", "P", "P", "P", "P", "E", "E"]
+word_rack = ["A", "R", "E", "N", "U", "T", "K"]
 
 
 class Square:
