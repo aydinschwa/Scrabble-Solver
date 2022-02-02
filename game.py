@@ -60,7 +60,7 @@ def draw_board(board):
                 screen.blit(letter, ((margin + square_width) * x + margin + x_offset + letter_x_offset,
                                      (margin + square_height) * y + margin + y_offset + 7))
 
-                letter_score = modifier_font.render(str(point_dict[board[x][y].letter]), True, (0, 0, 0))
+                letter_score = modifier_font.render(str(game.point_dict[board[x][y].letter]), True, (0, 0, 0))
                 screen.blit(letter_score, ((margin + square_width) * x + margin + x_offset + 31,
                                            (margin + square_height) * y + margin + y_offset + 30))
 
@@ -132,6 +132,11 @@ def draw_start_screen():
     intro_rect = intro_text.get_rect(center=(screen_width // 2, screen_height // 4))
     screen.blit(intro_text, intro_rect)
 
+    info_text = tile_font.render(f"Press Space to Generate New Game Once Game is Finished", True, (0, 0, 0))
+    info_rect = info_text.get_rect(center=(screen_width // 2, screen_height // 4 + 100))
+    screen.blit(info_text, info_rect)
+
+
     space_text = tile_font.render("Press Space to Start", True, (0, 0, 0))
     space_rect = space_text.get_rect(center=(screen_width // 2, screen_height // 2))
     screen.blit(space_text, space_rect)
@@ -154,7 +159,7 @@ def draw_rack(rack):
         screen.blit(tile_letter, ((margin + square_width) * (i + 4) + margin + x_offset + letter_x_offset,
                                   700 + 7))
 
-        letter_score = modifier_font.render(str(point_dict[letter]), True, (0, 0, 0))
+        letter_score = modifier_font.render(str(game.point_dict[letter]), True, (0, 0, 0))
         screen.blit(letter_score, ((margin + square_width) * (i + 4) + margin + x_offset + 31,
                                    700 + 30))
 
@@ -217,11 +222,9 @@ if __name__ == "__main__":
     [tile_bag.remove(letter) for letter in word_rack]
     game = ScrabbleBoard(root)
 
-    # will need to have an actual starting word function eventually
-    game.best_row = 7
-    game.best_col = 5
-    game.insert_word(8, 6, "START")
-    point_dict = game.point_dict
+    word_rack = game.get_start_move(word_rack)
+    word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
+    [tile_bag.remove(letter) for letter in new_letters]
 
     pygame.display.set_caption("Scrabble")
 
@@ -245,14 +248,10 @@ if __name__ == "__main__":
                     [tile_bag.remove(letter) for letter in word_rack]
                     game = ScrabbleBoard(root)
 
-                    # will need to have an actual starting word function eventually
-                    game.best_row = 7
-                    game.best_col = 5
-                    game.insert_word(8, 6, "START")
-                    point_dict = game.point_dict
+                    game.get_start_move(word_rack)
+                    word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
+                    [tile_bag.remove(letter) for letter in new_letters]
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                print(mouse_x, mouse_y)
         if game_state == "start_screen":
             draw_start_screen()
             continue
@@ -272,6 +271,9 @@ if __name__ == "__main__":
 
                 else:
                     game_state = "end_screen"
+                    for word in all_board_words(game.board):
+                        if not find_in_dawg(word, root) and word:
+                            raise Exception(f"Invalid word on board: {word}")
 
         if game_state == "end_screen":
             draw_board(game.board)

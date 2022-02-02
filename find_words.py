@@ -11,7 +11,7 @@ big_list = [word.strip("\n") for word in big_list]
 root = build_dawg(big_list)
 
 word_score_dict = {}
-word_rack = ["A", "R", "E", "N", "U", "T", "K"]
+word_rack = ["E", "S", "T", "O"]
 
 
 class Square:
@@ -21,7 +21,7 @@ class Square:
         self.left_neighbor = None
 
 
-placed_square = Square("E")
+placed_square = Square("H")
 a = Square()
 b = Square()
 c = Square()

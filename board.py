@@ -480,6 +480,32 @@ class ScrabbleBoard:
 
         return word_rack
 
+    def get_start_move(self, word_rack):
+        # board symmetrical at start so just always play the start move horizontally
+        # try every letter in rack as possible anchor square
+        self.best_row = 7
+        self.best_col = 8
+        for i, letter in enumerate(word_rack):
+            potential_square = self.board[7][8]
+            temp_rack = word_rack[:i] + word_rack[i + 1:]
+            potential_square.letter = letter
+            self._left_part(self.dawg_root, 7, 8, temp_rack, "", [], 6, 1)
+
+        # reset anchor square spot to blank after trying all combinations
+        self.board[7][8].letter = None
+        self.insert_word(self.best_row + 1, self.best_col + 1 - self.dist_from_anchor, self.best_word)
+        self.board[7][8].modifier = ""
+        self.word_score_dict[self.best_word] = self.highest_score
+
+        for letter in self.letters_from_rack:
+            if letter in word_rack:
+                word_rack.remove(letter)
+            elif letter == "%":
+                word_rack.remove("%")
+
+        return word_rack
+
+
 
 if __name__ == "__main__":
     pass
