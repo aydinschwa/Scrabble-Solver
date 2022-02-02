@@ -4,6 +4,7 @@ import pygame
 import sys
 import random
 import pickle
+import time
 
 
 # returns a list of all words played on the board
@@ -221,7 +222,6 @@ if __name__ == "__main__":
     word_rack = random.sample(tile_bag, 7)
     [tile_bag.remove(letter) for letter in word_rack]
     game = ScrabbleBoard(root)
-
     word_rack = game.get_start_move(word_rack)
     word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
     [tile_bag.remove(letter) for letter in new_letters]
@@ -247,7 +247,6 @@ if __name__ == "__main__":
                     word_rack = random.sample(tile_bag, 7)
                     [tile_bag.remove(letter) for letter in word_rack]
                     game = ScrabbleBoard(root)
-
                     game.get_start_move(word_rack)
                     word_rack, new_letters = refill_word_rack(word_rack, tile_bag)
                     [tile_bag.remove(letter) for letter in new_letters]
