@@ -186,8 +186,6 @@ class ScrabbleBoard:
             self.dist_from_anchor = dist_from_anchor
             self.letters_from_rack = rack_tiles
 
-        return board_word, score
-
     def _extend_right(self, start_node, square_row, square_col, rack, word, squares, dist_from_anchor):
         square = self.board[square_row][square_col]
         square.check_switch(self.is_transpose)
@@ -195,7 +193,7 @@ class ScrabbleBoard:
         # execute if square is empty
         if not square.letter:
             if start_node.is_terminal:
-                word, score = self._score_word(word, squares, dist_from_anchor)
+                self._score_word(word, squares, dist_from_anchor)
             for letter in start_node.children:
                 # if square already has letters above and below it, don't try to extend
                 if self.board[square_row + 1][square_col].letter and self.board[square_row - 1][square_col].letter:
@@ -504,7 +502,6 @@ class ScrabbleBoard:
                 word_rack.remove("%")
 
         return word_rack
-
 
 
 if __name__ == "__main__":

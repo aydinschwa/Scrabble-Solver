@@ -1,10 +1,9 @@
-from dawg import Node, build_dawg, find_in_dawg
+from dawg import *
 from board import ScrabbleBoard
 import pygame
 import sys
 import random
 import pickle
-import time
 
 
 # returns a list of all words played on the board

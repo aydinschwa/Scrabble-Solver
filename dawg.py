@@ -1,6 +1,44 @@
 import pickle
 
 
+def build_trie(lexicon):
+    num_nodes = 1
+    trie = {0: {}}
+    next_node = 1
+    for word in lexicon:
+        curr_node = 0
+        for let in word:
+            # if letter is present, move down its edge to next node
+            if let in trie[curr_node]:
+                edge_dict = trie[curr_node]
+                curr_node = edge_dict[let]
+            # otherwise, create new node and store its edge in current node
+            # then move to it
+            else:
+                num_nodes += 1
+                trie[next_node] = {}
+                trie[curr_node][let] = next_node
+                curr_node = next_node
+                next_node += 1
+        trie[curr_node]["END"] = True
+
+    print(num_nodes)
+    return trie
+
+
+# function to check validity if word is in trie
+def check_valid(word, trie):
+    curr_node = 0
+    for letter in word:
+        if letter in trie[curr_node]:
+            curr_node = trie[curr_node][letter]
+        else:
+            return False
+    if "END" in trie[curr_node]:
+        return True
+    else:
+        return False
+
 # Define a node to be stored in DAWG
 class Node:
     next_id = 0
@@ -95,8 +133,7 @@ def build_dawg(lexicon):
         #     print(i)
 
     minimize(curr_node, 0, minimized_nodes, non_minimized_nodes)
-    # [print(node) for node in minimized_nodes]
-    # print(len(minimized_nodes))
+    print(len(minimized_nodes))
     return root
 
 
@@ -116,6 +153,7 @@ def find_in_dawg(word, curr_node):
 if __name__ == "__main__":
     big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
     big_list = [word.strip("\n") for word in big_list]
+    build_trie(big_list)
     root = build_dawg(big_list)
     file_handler = open("lexicon/scrabble_words_complete.pickle", "wb")
     pickle.dump(root, file_handler)

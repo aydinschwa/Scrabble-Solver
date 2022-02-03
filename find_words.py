@@ -1,17 +1,5 @@
-from dawg import build_dawg, find_in_dawg
-from string import ascii_uppercase
-
-# english_list = open("lexicon/english_words.txt", "r").readlines()
-# english_list = [word.strip("\n") for word in english_list]
-# root = build_dawg(english_list)
-
-
-big_list = open("lexicon/scrabble_words_complete.txt", "r").readlines()
-big_list = [word.strip("\n") for word in big_list]
-root = build_dawg(big_list)
-
-word_score_dict = {}
-word_rack = ["E", "S", "T", "O"]
+from dawg import *
+import pickle
 
 
 class Square:
@@ -19,26 +7,6 @@ class Square:
         self.letter = letter
         self.right_neighbor = None
         self.left_neighbor = None
-
-
-placed_square = Square("H")
-a = Square()
-b = Square()
-c = Square()
-d = Square()
-e = Square()
-f = Square()
-g = Square()
-h = Square()
-
-placed_square.right_neighbor = a
-a.right_neighbor = b
-b.right_neighbor = c
-c.right_neighbor = d
-d.right_neighbor = e
-e.right_neighbor = f
-f.right_neighbor = g
-g.right_neighbor = h
 
 
 def score_word(word):
@@ -102,11 +70,38 @@ def get_all_words(start_node, square, rack, word):
         left_part(start_node, anchor_square, temp_rack, "", 5)
 
 
-get_all_words(root, placed_square, word_rack, "")
+if __name__ == "__main__":
+    to_load = open("lexicon/scrabble_words_complete.pickle", "rb")
+    root = pickle.load(to_load)
+    to_load.close()
 
-out = list(sorted(word_score_dict.items(), key=lambda x: x[1], reverse=True))
-[print(elem) for elem in out]
+    word_score_dict = {}
+    word_rack = ["E", "S", "T", "O"]
 
-for word in out:
-    if not find_in_dawg(word[0], root):
-        raise Exception(f"Word generation incorrect: {word[0]} not in lexicon")
+    placed_square = Square("H")
+    a = Square()
+    b = Square()
+    c = Square()
+    d = Square()
+    e = Square()
+    f = Square()
+    g = Square()
+    h = Square()
+
+    placed_square.right_neighbor = a
+    a.right_neighbor = b
+    b.right_neighbor = c
+    c.right_neighbor = d
+    d.right_neighbor = e
+    e.right_neighbor = f
+    f.right_neighbor = g
+    g.right_neighbor = h
+
+    get_all_words(root, placed_square, word_rack, "")
+
+    out = list(sorted(word_score_dict.items(), key=lambda x: x[1], reverse=True))
+    [print(elem) for elem in out]
+
+    for word in out:
+        if not find_in_dawg(word[0], root):
+            raise Exception(f"Word generation incorrect: {word[0]} not in lexicon")
