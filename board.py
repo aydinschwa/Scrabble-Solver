@@ -1,4 +1,4 @@
-from dawg import build_dawg, find_in_dawg
+from dawg import *
 import regex as re
 import random
 import copy
@@ -473,8 +473,6 @@ class ScrabbleBoard:
         for letter in self.letters_from_rack:
             if letter in word_rack:
                 word_rack.remove(letter)
-            elif letter == "%":
-                word_rack.remove("%")
 
         return word_rack
 
@@ -498,8 +496,6 @@ class ScrabbleBoard:
         for letter in self.letters_from_rack:
             if letter in word_rack:
                 word_rack.remove(letter)
-            elif letter == "%":
-                word_rack.remove("%")
 
         return word_rack
 
