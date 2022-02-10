@@ -136,7 +136,6 @@ def draw_start_screen():
     info_rect = info_text.get_rect(center=(screen_width // 2, screen_height // 4 + 100))
     screen.blit(info_text, info_rect)
 
-
     space_text = tile_font.render("Press Space to Start", True, (0, 0, 0))
     space_rect = space_text.get_rect(center=(screen_width // 2, screen_height // 2))
     screen.blit(space_text, space_rect)
