@@ -6,7 +6,7 @@ import copy
 
 class Square:
     # default behavior is blank square, no score modifier, all cross-checks valid
-    def __init__(self, letter=None, modifier="", sentinel=1):
+    def __init__(self, letter=None, modifier="Normal", sentinel=1):
         self.letter = letter
         self.cross_checks_0 = [sentinel] * 26
         self.cross_checks_1 = [sentinel] * 26
@@ -156,11 +156,11 @@ class ScrabbleBoard:
         # maintain list of which tiles were pulled from word rack
         rack_tiles = []
         for letter, square in zip(word, squares):
-            if not square.letter:
-                rack_tiles.append(letter)
             # add cross-sum by adding first and second letter scores from orthogonal two-letter word
             if cross_sum_ind in square.modifier:
-                score = int(square.modifier[-1]) + self.point_dict[letter]
+                score += int(square.modifier[-1])
+            if square.modifier:
+                rack_tiles.append(letter)
             if "2LS" in square.modifier:
                 score += (self.point_dict[letter] * 2)
             elif "3LS" in square.modifier:
